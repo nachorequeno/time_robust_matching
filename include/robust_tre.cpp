@@ -223,7 +223,7 @@ T get_time_robustness_translation_optimal(timedrel::zone_set<T> &zs_in, T l, T u
     enew_point = u;
     /* Compute robustness to the left */
     i = border_points_left.size() - 1;
-    zs_segment = timedrel::zone_set<T>();
+    auto zs_segment = timedrel::zone_set<T>();
     do{
         new_point = border_points_left[i];
         enew_point = eborder_points_left[i];

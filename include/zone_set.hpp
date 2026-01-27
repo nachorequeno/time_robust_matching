@@ -4,10 +4,59 @@
 #include <vector>
 #include <deque>
 #include <algorithm>
- 
+#include <sstream>
+#include <iostream>
+
+#include <string>
+#include <gmpxx.h>
+#include <type_traits>
+
 #include "zone.hpp"
 
 namespace timedrel {
+
+zone<mpq_class> get_rationals_zone_from_double_zone(const zone<double> &z){
+    std::array<mpq_class, 6> values;
+    std::array<bool, 6> signs;
+
+    values[0] = mpq_class(z.get_bmin().value);
+    values[1] = mpq_class(z.get_bmax().value);
+    values[2] = mpq_class(z.get_emin().value);
+    values[3] = mpq_class(z.get_emax().value);
+    values[4] = mpq_class(z.get_dmin().value);
+    values[5] = mpq_class(z.get_dmax().value);
+
+    signs[0] = z.get_bmin().sign;
+    signs[1] = z.get_bmax().sign;
+    signs[2] = z.get_emin().sign;
+    signs[3] = z.get_emax().sign;
+    signs[4] = z.get_dmin().sign;
+    signs[5] = z.get_dmax().sign;
+
+    return zone<mpq_class>::make(values, signs);
+}
+
+zone<double> get_double_zone_from_rationals_zone(const zone<mpq_class> &z){
+    std::array<double, 6> values;
+    std::array<bool, 6> signs;
+
+    values[0] = z.get_bmin().value.get_d();
+    values[1] = z.get_bmax().value.get_d();
+    values[2] = z.get_emin().value.get_d();
+    values[3] = z.get_emax().value.get_d();
+    values[4] = z.get_dmin().value.get_d();
+    values[5] = z.get_dmax().value.get_d();
+
+    signs[0] = z.get_bmin().sign;
+    signs[1] = z.get_bmax().sign;
+    signs[2] = z.get_emin().sign;
+    signs[3] = z.get_emax().sign;
+    signs[4] = z.get_dmin().sign;
+    signs[5] = z.get_dmax().sign;
+
+    return zone<double>::make(values, signs);
+}
+
 
 template <class T>
 struct earlier_bmin {
@@ -223,6 +272,73 @@ public:
     }
     void add_from_period_both_anchor(value_type begin, value_type end){
         add(zone_type::make_from_period_both_anchor(begin, end));
+    }
+
+    zone_set<mpq_class> get_as_rationals() const{
+        // Create an empty zone_set with rationals
+        zone_set<mpq_class> zsq;
+
+        if(std::is_same<double,T>::value){
+            for(auto it = this->cbegin(); it != this->cend(); it++){
+                zsq.add(get_rationals_zone_from_double_zone(*it));
+            }
+        }
+
+        return zsq;
+    }
+
+    zone_set<double> get_as_double() const{
+        // Create an empty zone_set with rationals
+        zone_set<double> zsd;
+
+        if(std::is_same<mpq_class,T>::value){
+            for(auto it = this->cbegin(); it != this->cend(); it++){
+                zsd.add(get_double_zone_from_rationals_zone(*it));
+            }
+        }
+
+        return zsd;
+    }
+
+    // Note start: These functions add zones only for rationals. For other types nothing is added.
+    void add_from_period_string(const std::string &begin, const std::string &end){
+        if(std::is_same<mpq_class,T>::value){
+            mpq_class qbegin(begin);
+            mpq_class qend(end);
+            add(zone_type::make_from_period(qbegin, qend));
+        }
+    }
+    void add_from_period_rise_anchor_string(const std::string &begin, const std::string &end){
+        if(std::is_same<mpq_class,T>::value){
+            mpq_class qbegin(begin);
+            mpq_class qend(end);
+            add(zone_type::make_from_period_rise_anchor(qbegin, qend));
+        }
+    }
+    void add_from_period_fall_anchor_string(const std::string &begin, const std::string &end){
+        if(std::is_same<mpq_class,T>::value){
+            mpq_class qbegin(begin);
+            mpq_class qend(end);
+            add(zone_type::make_from_period_fall_anchor(qbegin, qend));
+        }
+    }
+    void add_from_period_both_anchor_string(const std::string &begin, const std::string &end){
+        if(std::is_same<mpq_class,T>::value){
+            mpq_class qbegin(begin);
+            mpq_class qend(end);
+            add(zone_type::make_from_period_both_anchor(qbegin, qend));
+        }
+    }
+    // Note end:
+
+    std::string toString() const {
+        std::string s="[";
+        for(auto zit = this->cbegin(); zit != this->cend(); zit++){
+            s += "("+timedrel::toString(*zit)+"),\n";
+        }
+        s += "]";
+
+        return s;
     }
 
     static zone_set_type filter(const zone_set_type &zs){
@@ -609,20 +725,13 @@ public:
 
         zone_set_type znext;
 
-        while(true){
+        znext = concatenation(zlast, zs);
+        while(not includes(zplus, znext)){
+            // std::cout << znext << zplus << includes(zplus, znext) << std::endl;                zlast = znext;
+            zplus = set_union(zplus, znext);
+            znext.clear();
 
             znext = concatenation(zlast, zs);
-            // std::cout << znext << zplus << includes(zplus, znext) << std::endl;
-
-            if(not includes(zplus, znext)) {
-                zlast = znext;
-                zplus = set_union(zplus, znext);
-                znext.clear();
-
-            } else {
-                break;
-            }
-            
         }
 
     return zplus;
@@ -668,6 +777,27 @@ public:
         const value_type dmax){
 
         return duration_restriction(zs, lower_bound_type::open(dmin), upper_bound_type::closed(dmax));
+    }
+
+    /**
+     *  @brief  Duration restriction operation
+     *  @param  arg  A string.
+     *  @return %zone_set
+     *
+     *  For rationals returns a set of timed periods whose durations are in (dmin, dmax] and that are in the zone set given
+     *  for other types returns empty zone set
+     */
+    static zone_set_type duration_restriction_string(
+        const zone_set_type& zs,
+        const std::string &dmin,
+        const std::string &dmax){
+        if(std::is_same<mpq_class,T>::value){
+            mpq_class qdmin(dmin);
+            mpq_class qdmax(dmax);
+            return duration_restriction(zs, lower_bound_type::open(qdmin), upper_bound_type::closed(qdmax));
+        }else{
+            return zone_set();
+        }
     }
 
     /**
@@ -951,6 +1081,29 @@ public:
         return zone_set_type::diamond_finished_by(zs, lower_bound_type::open(a), upper_bound_type::closed(b));
     }
 
+    // Note start: To support rationals we provide string inputs
+    // Return empty zone set if not rational zone sets
+    static zone_set_type diamond_meets_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    static zone_set_type diamond_met_by_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    static zone_set_type diamond_starts_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    static zone_set_type diamond_started_by_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    static zone_set_type diamond_finishes_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    static zone_set_type diamond_finished_by_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    // Note end:
+
+
     static zone_set_type box_meets(const zone_set_type& zs, const lower_bound_type lbound, const upper_bound_type ubound){
         return zone_set_type::complementation(diamond_meets(zone_set_type::complementation(zs), lbound, ubound));
     }
@@ -989,9 +1142,231 @@ public:
         return zone_set_type::box_finished_by(zs, lower_bound_type::open(a), upper_bound_type::closed(b));
     }
 
+    // Note start: To support rationals we provide string inputs
+    // Return empty zone set if not rational zone sets
+    static zone_set_type box_meets_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    static zone_set_type box_met_by_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    static zone_set_type box_starts_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    static zone_set_type box_started_by_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    static zone_set_type box_finishes_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    static zone_set_type box_finished_by_string(const zone_set_type& zs, const std::string &a, const std::string &b){
+        return zone_set();
+    }
+    // Note end:
+
 };
 
 
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::diamond_meets_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::diamond_meets(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::diamond_met_by_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::diamond_met_by(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::diamond_starts_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::diamond_starts(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::diamond_started_by_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::diamond_started_by(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::diamond_finishes_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::diamond_finishes(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::diamond_finished_by_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::diamond_finished_by(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::box_meets_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::box_meets(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::box_met_by_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::box_met_by(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::box_starts_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::box_starts(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::box_started_by_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::box_started_by(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::box_finishes_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::box_finishes(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+template <>
+zone_set<mpq_class> zone_set<mpq_class>::box_finished_by_string(const zone_set<mpq_class>& zs,
+        const std::string &a, const std::string &b){
+    mpq_class qa(a);
+    mpq_class qb(b);
+    return zone_set<mpq_class>::box_finished_by(zs, lower_bound<mpq_class>::open(qa), upper_bound<mpq_class>::closed(qb));
+}
+
+
+/* Fully accurate (hopefully) */
+template <typename T>
+std::pair<T,T> get_time_robustness_translation_optimal(const zone_set<T> &zs_in, T l, T u, T scope_start, T scope_end){
+    T rob_value_right = 0, rob_value_left = 0, rob_value = 0;
+    auto zs_line = timedrel::zone_set<T>();
+    zs_line.add({scope_start,scope_end,scope_start,scope_end,u-l,u-l},{1,1,1,1,1,1});
+
+    auto zs_inter = timedrel::zone_set<T>::intersection(zs_in, zs_line);
+
+    std::vector<T> border_points_right, border_points_left;
+    std::vector<T> eborder_points_right, eborder_points_left;
+    /* Get points to the right and points to the left */
+    for(auto z : zs_inter){
+        T sp = z.get_bmin().value;
+        T ep = z.get_bmax().value;
+        T esp = z.get_emin().value;
+        T eep = z.get_emax().value;
+        if(sp >= l){
+            border_points_right.push_back(sp);
+            eborder_points_right.push_back(esp);
+        }
+        if(ep >= l){
+            border_points_right.push_back(ep);
+            eborder_points_right.push_back(eep);
+        }
+        if(sp <= l){
+            border_points_left.push_back(sp);
+            eborder_points_left.push_back(esp);
+        }
+        if(ep <= l){
+            border_points_left.push_back(ep);
+            eborder_points_left.push_back(eep);
+        }
+    }
+    sort(border_points_right.begin(), border_points_right.end());
+    sort(border_points_left.begin(), border_points_left.end());
+
+    T old_point = l;
+    T new_point = l;
+    T eold_point = u;
+    T enew_point = u;
+    /* Compute robustness to the right */
+    int i = 0;
+    bool is_included = true;
+    while (i < border_points_right.size() and is_included){
+        new_point = border_points_right[i];
+        enew_point = eborder_points_right[i];
+        auto zs_segment = timedrel::zone_set<T>();
+        zs_segment.add({old_point, new_point,
+            eold_point, enew_point,
+            u-l,u-l},{1,1,1,1,1,1});
+
+        old_point = new_point;
+        eold_point = enew_point;
+
+        is_included = timedrel::zone_set<T>::includes(zs_inter, zs_segment);
+        i++;
+    }
+    /* Assign robustness value to the right */
+    rob_value_right = old_point - l;
+
+    old_point = l;
+    new_point = l;
+    eold_point = u;
+    enew_point = u;
+    /* Compute robustness to the left */
+    int i = border_points_left.size() - 1;
+    bool is_included = true;
+    while(i >= 0 and is_included){
+        new_point = border_points_left[i];
+        enew_point = eborder_points_left[i];
+        auto zs_segment = timedrel::zone_set<T>();
+        zs_segment.add({new_point, old_point,
+            enew_point, eold_point,
+            u-l,u-l},{1,1,1,1,1,1});
+
+        old_point = new_point;
+        eold_point = enew_point;
+
+        is_included = timedrel::zone_set<T>::includes(zs_inter, zs_segment);
+        i--;
+    }
+    /* Assign robustness value to the left */
+    rob_value_left = l - old_point;
+
+    return std::pair<T,T>(rob_value_left, rob_value_right);
+}
+
+
+// TODO: Handle int
+
+
+// TODO: scope_start, scope_end are not needed
+std::pair<double,double> time_robustness_translation(const zone_set<mpq_class> &zs_in, double l, double u, double scope_start, double scope_end){
+    zone_set<double> zsd = zs_in.get_as_double();
+
+    return get_time_robustness_translation_optimal<double>(zsd, l, u, scope_start, scope_end);
+}
+
+// TODO: scope_start, scope_end are not needed
+std::pair<double,double> time_robustness_translation(const zone_set<double> &zs_in, double l, double u, double scope_start, double scope_end){
+    return get_time_robustness_translation_optimal<double>(zs_in, l, u, scope_start, scope_end);
+}
 
 
 /**
@@ -1016,6 +1391,13 @@ inline bool operator!=(
     const zone_set<T, Container>& rhs){ 
 
     return !(lhs.container == rhs.container); 
+}
+
+template<typename T, typename Container>
+inline std::string toString(const zone_set<T, Container>& zs) {
+    std::ostringstream ss;
+    ss << zs;
+    return ss.str();
 }
 
 } //namespace timedrel
