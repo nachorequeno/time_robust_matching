@@ -1,16 +1,16 @@
-import robust_tre
-from robust_tre import zone_set
+import robustTRE
+from robustTRE import zone_set
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 # Function that returns the time robustness (translation) oracle from the match set
-def gen_rob_oracle(zset: zone_set, start_scope: float, end_scope: float) -> callable:
-	return lambda x,y: robust_tre.trobustness(zset,x,start_scope,end_scope)
+def gen_rob_oracle(zset: zone_set) -> callable:
+	return lambda x,y: robustTRE.trobustness(zset,x,y)
 
 # Function that returns the optimal robustness (translation) oracle from the match set
 def gen_rob_oracle_opt(zset: zone_set, start_scope: float, end_scope: float) -> callable:
-	return lambda x,y: robust_tre.trobustness_opt(zset,x,y,start_scope,end_scope)
+	return lambda x,y: robustTRE.trobustness_opt(zset,x,y,start_scope,end_scope)
 
 # Initialize scaling factor
 scaling = 1000
@@ -23,21 +23,22 @@ end_scope = 20.0
 duration = end_scope - start_scope
 
 # Create a match set of choice
-zset = robust_tre.zone_set()
+zset = robustTRE.zone_set()
 zset.add_from_period(start_scope, 10.0)
 zset.add_from_period(10.0, 15.0)
 zset.add_from_period(15.1,end_scope)
-robust_tre.zsetprint(zset)
+robustTRE.zsetprint(zset)
 
 # Filter out points where robustness is less than rob_bound = 0.1
 rob_bound = 0.1
-zset_rob = robust_tre.trmtrans(zset, rob_bound)
+zset_rob = robustTRE.trmtrans(zset, rob_bound)
 
 # Print the robust zone set
-robust_tre.zsetprint(zset_rob)
+robustTRE.zsetprint(zset_rob)
 
 # Get the time robustness (translation) oracle
 rob_oracle = gen_rob_oracle_opt(zset, start_scope, end_scope)
+# rob_oracle = gen_rob_oracle(zset)
 
 # generate 2 2d grids for the x & y bounds
 y, x = np.meshgrid(np.linspace(start_scope, end_scope, scaling), np.linspace(start_scope, end_scope, scaling))
@@ -46,6 +47,10 @@ y, x = np.meshgrid(np.linspace(start_scope, end_scope, scaling), np.linspace(sta
 z = np.zeros((scaling,scaling))
 for i in range(scaling):
 	for j in range(scaling):
+		# xi, yi = float(x[i,j]), float(y[i,j])
+		# zi = rob_oracle(xi, yi)
+		# z[i,j] = np.float64(zi) # Convert to numpy float64
+		# print(f"{i},{j}: x={x[i,j]}, y={y[i,j]}, type={type(x[i,j])},{type(y[i,j])}, type={type(xi)},{type(yi)}")
 		z[i,j] = rob_oracle(x[i,j],y[i,j])
 
 # x and y are bounds, so z should be the value *inside* those bounds.

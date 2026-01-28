@@ -1,8 +1,30 @@
-# The robustTRE package
-This repository is for sharing the source code of the robustTRE package. The package is for doing time-robust pattern matching using timed regular expressions in Python. We make use of **Parma Polyhedra Library (PPL)** for implementing the algorithm for getting the time-robust match-set from a given match-set and a given robustness value. We use **pybind11** to create **Python3** bindings.
+# RobustTRE
+RobusTRE is a fork of [Timedrel] and [Montre] that computes time-robust pattern matching Timed Regular Expressions in Python. 
 
-## Installation
-We give installation instructions for Ubuntu.
+[Timedrel]: https://github.com/doganulus/timedrel
+[Montre]: https://github.com/doganulus/montre
+
+# Installation
+In order to install RobustTRE, run the following commands
+``
+pip3 install .
+``
+
+# Compilation
+Alternatively, you can compile and pack the library into a *.whl file.
+
+``
+python3 setup.py bdist_wheel --universal
+``
+
+``
+pip3 install  --force-reinstall ./dist/robusttre-0.1.0-*.whl 
+``
+
+Then, you can install the *.whl file using the installation procedure for Python libraries.
+
+We provide a list of detailed commands for Ubuntu.
+
 1. Install Parma Polyhedra Library (PPL).
 ```
 sudo apt install ppl-dev
@@ -21,11 +43,14 @@ sudo apt install libgmp-dev
 ```
 6. Run
 ```
-python3 robustness_map.py
+python3 ./examples/robustness_example_1.py
 ```
 
-## Authors and acknowledgment
-This package is built on top of the work done at the VERIMAG laboratory located in the Grenoble city of France. This work is based on the theory of timed pattern matching developed by [Dogan Ulus](https://www.cmpe.boun.edu.tr/tr/people/dogan.ulus). Check out his [github page](https://github.com/doganulus). Timed pattern matching has been implemented in [montre](https://github.com/doganulus/montre) and [timedrel](https://github.com/doganulus/timedrel).
+# Dependencies
+RobustTRE uses **Parma Polyhedra Library (PPL)** for implementing the algorithm for getting the time-robust match-set from a given match-set and a given robustness value. We use **pybind11** to create **Python3** bindings.
+
+# Authors and acknowledgment
+This package is built on top of the work done at the VERIMAG laboratory located in the Grenoble city of France. This work is based on the theory of timed pattern matching developed by Dogan Ulus. Check out his [github page](https://github.com/doganulus).
 
 ## License
 For open source projects, say how it is licensed.
