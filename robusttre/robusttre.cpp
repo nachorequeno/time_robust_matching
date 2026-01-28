@@ -200,20 +200,25 @@ T get_time_robustness_translation_optimal(timedrel::zone_set<T> &zs_in, T l, T u
     T new_point = l;
     T eold_point = u;
     T enew_point = u;
+
     /* Compute robustness to the right */
     int i = 0;
-    auto zs_segment = timedrel::zone_set<T>();
-    do{
+    bool is_included = true;
+    //auto zs_segment = timedrel::zone_set<T>();
+    //do{
+    while (i < border_points_right.size() and is_included){
         new_point = border_points_right[i];
         enew_point = eborder_points_right[i];
-        zs_segment = timedrel::zone_set<T>();
+        auto zs_segment = timedrel::zone_set<T>();
         zs_segment.add({old_point, new_point,
             eold_point, enew_point,
             u-l,u-l},{1,1,1,1,1,1});
         old_point = new_point;
         eold_point = enew_point;
+
+        is_included = timedrel::zone_set<T>::includes(zs_inter, zs_segment);
         i++;
-    } while (i < border_points_right.size() and timedrel::zone_set<T>::includes(zs_inter, zs_segment));
+    } //while (i < border_points_right.size() and timedrel::zone_set<T>::includes(zs_inter, zs_segment));
     /* Assign robustness value to the right */
     rob_value_right = old_point - l;
 
@@ -221,20 +226,26 @@ T get_time_robustness_translation_optimal(timedrel::zone_set<T> &zs_in, T l, T u
     new_point = l;
     eold_point = u;
     enew_point = u;
+
     /* Compute robustness to the left */
     i = border_points_left.size() - 1;
-    auto zs_segment = timedrel::zone_set<T>();
-    do{
+    //zs_segment = timedrel::zone_set<T>();
+    //do{
+    is_included = true;
+    while(i >= 0 and is_included){
         new_point = border_points_left[i];
         enew_point = eborder_points_left[i];
-        zs_segment = timedrel::zone_set<T>();
+        auto zs_segment = timedrel::zone_set<T>();
         zs_segment.add({new_point, old_point,
             enew_point, eold_point,
             u-l,u-l},{1,1,1,1,1,1});
+
         old_point = new_point;
         eold_point = enew_point;
+
+        is_included = timedrel::zone_set<T>::includes(zs_inter, zs_segment);
         i--;
-    } while(i >= 0 and timedrel::zone_set<T>::includes(zs_inter, zs_segment));
+    } // while(i >= 0 and timedrel::zone_set<T>::includes(zs_inter, zs_segment));
     /* Assign robustness value to the left */
     rob_value_left = l - old_point;
 
@@ -257,7 +268,7 @@ namespace py = pybind11;
 
 using T = double;
 
-PYBIND11_MODULE(robust_tre, m) {
+PYBIND11_MODULE(robustTRE, m) {
     m.doc() = "timedrel robust plugin"; // optional module docstring
 
     m.def("add", &add, "A function that adds two numbers");
@@ -349,4 +360,10 @@ PYBIND11_MODULE(robust_tre, m) {
     m.def<zone_set_type (*)(const zone_set_type&, T, T)>("box_finished_by", &zone_set_type::box_finished_by);
     m.def<zone_set_type (*)(const zone_set_type&, T, T)>("box_meets", &zone_set_type::box_meets);
     m.def<zone_set_type (*)(const zone_set_type&, T, T)>("box_met_by", &zone_set_type::box_met_by);
+
+#ifdef VERSION_INFO
+    m.attr("__version__") = VERSION_INFO;
+#else
+    m.attr("__version__") = "dev";
+#endif
 }
