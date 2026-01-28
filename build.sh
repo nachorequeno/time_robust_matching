@@ -1,1 +1,1 @@
-c++ -O3 -Wall -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) ./include/robust_tre.cpp -o robust_tre$(python3-config --extension-suffix) -lppl -lgmp -lgmpxx
+c++ -O3 -Wall -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) ./robusttre/robustTRE.cpp -o robust_tre$(python3-config --extension-suffix) -lppl -lgmp -lgmpxx
