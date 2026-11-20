@@ -67,7 +67,9 @@ setup(
     license='GPLv3+',
     python_requires='>=3',
     install_requires=[#'antlr4-python3-runtime==4.7.1',
-                      'pybind11>=2.11'],
+                      'pybind11>=2.11',
+                      'setuptools>=63.2.0',
+                      'wheel>=0.41.3'],
     #ext_package='robusttre',
     # ext_modules=[ext_instance_int, ext_instance_float, ext_instance_rational, ext_instance_diag, ext_instance_robust]
     ext_modules=[robusttre_module]
